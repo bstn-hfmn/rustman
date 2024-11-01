@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::io;
+use std::io::{self, stdout};
 
+use crossterm::cursor::SetCursorStyle;
 use rustman::app::App;
 
 fn main() -> std::io::Result<()> {

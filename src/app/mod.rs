@@ -1,35 +1,40 @@
 use crossterm::{
-    cursor,
+    cursor::{self},
     event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
 };
 use ratatui::{
     layout::{Constraint, Layout, Position},
-    widgets::{Block, Borders},
+    widgets::{Block, Paragraph, Widget},
     DefaultTerminal, Frame,
 };
 use std::io::stdout;
 
-use crate::ui::widgets::input::CursorMoveDirection;
-use crate::ui::widgets::TextField;
+use crate::ui::widgets::{CursorDirection, TextInput};
+use crate::ui::Overview;
 
-enum InputMode {
-    Edit,
-    Navigate,
+enum UIState {
+    EditURL,
+    EditRequest,
+
+    NavigateHistory,
+    NavigateOverview,
+    NavigateResponse,
 }
 
 pub struct App {
     running: bool,
-    mode: InputMode,
+    state: UIState,
 
-    url_field: TextField,
+    overview: Overview,
 }
 
 impl App {
     pub fn new() -> Self {
         App {
             running: false,
-            mode: InputMode::Navigate,
-            url_field: TextField::new("URL"),
+            overview: Overview::new(),
+
+            state: UIState::NavigateOverview,
         }
     }
 
@@ -58,114 +63,48 @@ impl App {
         &mut self,
         frame: &mut Frame,
     ) -> std::io::Result<()> {
-        let ar = Layout::vertical([
-            Constraint::Length(3),
-            Constraint::Length(1),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(3),
-        ])
-        .split(frame.area());
-
-        let [header, _, view_tabs, detail_tabs, main, footer] =
-            Layout::vertical([
-                Constraint::Length(3),
-                Constraint::Length(1),
-                Constraint::Length(3),
-                Constraint::Length(3),
-                Constraint::Min(5),
-                Constraint::Length(3),
-            ])
-            .areas(frame.area());
-
-        match self.mode {
-            InputMode::Navigate => {
+        match self.state {
+            UIState::NavigateHistory => {}
+            UIState::NavigateResponse => {}
+            UIState::NavigateOverview => {
                 crossterm::execute!(stdout(), cursor::Hide)?;
-                self.url_field.unfocus();
+
+                //self.url.unfocus();
             }
-            InputMode::Edit => {
+            UIState::EditURL | UIState::EditRequest => {
                 crossterm::execute!(stdout(), cursor::Show)?;
 
-                self.url_field.focus();
-                frame.set_cursor_position(Position::new(
-                    header.x + self.url_field.cursor as u16 + 1,
-                    header.y + 1,
-                ));
+                //self.url.focus();
+                //frame.set_cursor_position(Position::new(
+                //    input.x + self.url.cursor as u16 + 1,
+                //    input.y + 1,
+                //));
             }
         }
 
-        frame.render_widget(
-            Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP),
-            ar[2],
-        );
-        frame.render_widget(
-            Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP),
-            ar[3],
-        );
-        frame.render_widget(
-            Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP),
-            ar[4],
-        );
-        frame.render_widget(Block::default(), ar[5]);
-
-        frame.render_widget(self.url_field.clone(), ar[0]);
+        frame.render_widget(&self.overview, frame.area());
         Ok(())
     }
 
     fn handle_events(&mut self) -> std::io::Result<()> {
         if let Event::Key(ev) = event::read()? {
-            match self.mode {
-                InputMode::Navigate if ev.kind == KeyEventKind::Press => {
+            match self.state {
+                UIState::NavigateOverview if ev.kind == KeyEventKind::Press => {
                     match ev.code {
                         KeyCode::Char('q') | KeyCode::Esc => self.quit(),
-                        KeyCode::Char('e') => self.toggle_mode(),
-                        _ => {}
+                        _ => self.overview.handle_key_event(ev),
                     }
                 }
 
-                InputMode::Edit if ev.kind == KeyEventKind::Press => {
-                    match ev.code {
-                        KeyCode::Char(c) => self.url_field.append(c),
-                        KeyCode::Backspace => self.url_field.remove(),
-                        KeyCode::Left => match ev.modifiers {
-                            KeyModifiers::CONTROL => self
-                                .url_field
-                                .move_cursor(CursorMoveDirection::Left, true),
-
-                            _ => self
-                                .url_field
-                                .move_cursor(CursorMoveDirection::Left, false),
-                        },
-                        KeyCode::Right => match ev.modifiers {
-                            KeyModifiers::CONTROL => self
-                                .url_field
-                                .move_cursor(CursorMoveDirection::Right, true),
-
-                            _ => self
-                                .url_field
-                                .move_cursor(CursorMoveDirection::Right, false),
-                        },
-                        KeyCode::Delete => self.url_field.reset(),
-                        KeyCode::Esc => self.toggle_mode(),
-                        _ => {}
-                    }
-                }
+                UIState::EditURL if ev.kind == KeyEventKind::Press => match ev.code {
+                    KeyCode::Esc => self.state = UIState::NavigateOverview,
+                    _ => self.overview.url.handle_key_event(ev),
+                },
                 _ => {}
             }
         }
 
         Ok(())
-    }
-
-    fn toggle_mode(&mut self) {
-        self.mode = match self.mode {
-            InputMode::Edit => InputMode::Navigate,
-            InputMode::Navigate => InputMode::Edit,
-        };
     }
 
     fn quit(&mut self) {
