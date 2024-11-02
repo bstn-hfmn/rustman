@@ -57,13 +57,10 @@ impl Overview {
         self.selection.y = self.selection.y.clamp(0, 1);
 
         self.selected = match (self.selection.x, self.selection.y) {
-            (0, 0) => OverviewArea::History,
+            (0, 0) | (0, 1) | (0, 2) => OverviewArea::History,
             (1, 0) => OverviewArea::Request,
             (2, 0) => OverviewArea::Response,
-            (1, 1) | (0, 1) => {
-                self.url.focus();
-                OverviewArea::URL
-            }
+            (1, 1) | (2, 1) => OverviewArea::URL,
             _ => OverviewArea::History,
         }
     }
@@ -123,10 +120,30 @@ impl WidgetRef for Overview {
             })
             .render(left, buf);
 
-        self.url.render_ref(input, buf);
+        //self.url.render_ref(input, buf);
+        Block::bordered()
+            .title("URL")
+            .style(match self.selected {
+                OverviewArea::URL => selected_style,
+                _ => default_style,
+            })
+            .render(input, buf);
 
-        Block::bordered().title("Request").render(request, buf);
-        Block::bordered().title("Response").render(response, buf);
+        Block::bordered()
+            .title("Request")
+            .style(match self.selected {
+                OverviewArea::Request => selected_style,
+                _ => default_style,
+            })
+            .render(request, buf);
+
+        Block::bordered()
+            .title("Response")
+            .style(match self.selected {
+                OverviewArea::Response => selected_style,
+                _ => default_style,
+            })
+            .render(response, buf);
 
         Paragraph::new("Use ← ↑ → ↓ to navigate, <ENTER> to edit")
             .centered()
