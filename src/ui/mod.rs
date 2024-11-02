@@ -42,15 +42,26 @@ impl Overview {
     ) {
         match dir {
             CursorDirection::Right => {
-                self.selection.x = self.selection.x.saturating_add(1)
+                self.selection.x = match self.selected {
+                    OverviewArea::URL => self.selection.x,
+                    _ => self.selection.x.saturating_add(1),
+                };
             }
             CursorDirection::Left => {
                 self.selection.x = self.selection.x.saturating_sub(1)
             }
             CursorDirection::Down => {
-                self.selection.y = self.selection.y.saturating_sub(1)
+                self.selection.y = match self.selected {
+                    OverviewArea::History => self.selection.y,
+                    _ => self.selection.y.saturating_sub(1),
+                };
             }
-            CursorDirection::Up => self.selection.y = self.selection.y.saturating_add(1),
+            CursorDirection::Up => {
+                self.selection.y = match self.selected {
+                    OverviewArea::History => self.selection.y,
+                    _ => self.selection.y.saturating_add(1),
+                };
+            }
         };
 
         self.selection.x = self.selection.x.clamp(0, 2);
